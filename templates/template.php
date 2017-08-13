@@ -140,14 +140,15 @@
 
         function pageSpeed() {
 
-            var scoreElement = $('#scoreElement');
+            var scoreElementDesktop = $('#scoreElementDesktop');
+            var scoreElementMobile = $('#scoreElementMobile');
 
             var element = $('#pageSpeed');
             element.empty();
             element.html('loading...');
 
-            var checkDesktop = $('#checkDesktop').is(":checked")
-            var checkMobile = $('#checkMobile').is(":checked")
+            var checkDesktop = $('#checkDesktop').is(":checked");
+            var checkMobile = $('#checkMobile').is(":checked");
 
             $.ajax({
                 url : '/seo-checker/page-speed?desktop=' + checkDesktop + '&mobile=' + checkMobile,
@@ -157,8 +158,11 @@
 
                     console.log(data);
 
-                    scoreElement.html(data['avg']);
-                    addClass(scoreElement, data['avg']);
+                    scoreElementDesktop.html(data['avgDesktop']);
+                    addClass(scoreElementDesktop, data['avgDesktop']);
+
+                    scoreElementMobile.html(data['avgMobile']);
+                    addClass(scoreElementMobile, data['avgMobile']);
 
                     element.empty();
 
@@ -240,7 +244,7 @@
         </div>
     </div>
 
-    <h2>Google PageSpeed <span class="label" id="scoreElement"></span>
+    <h2>Google PageSpeed <span class="label" id="scoreElementDesktop"></span> <span class="label" id="scoreElementMobile"></span>
         <button class="btn btn-default btn-xs" onclick="pageSpeed()">Reoad</button>
     </h2>
 
