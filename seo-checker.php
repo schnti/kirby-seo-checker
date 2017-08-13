@@ -8,13 +8,14 @@ include_once __DIR__ . '/helper/statuscodes.php';
 
 use C;
 use ka\HTTP;
+use ka\StatusCodes;
 use Tpl;
 use Response;
 
 class SEOChecker
 {
 
-	public static function recursiveNav($subpages = null, $googleApiKey, &$counter, &$scoreSumDesktop, &$scoreSumMobile)
+	public static function recursiveNav($subpages = null, $googleApiKey, $desktop, $mobile, &$counter, &$errors)
 	{
 
 		$array = array();
@@ -31,30 +32,46 @@ class SEOChecker
 
 			if ($p->hasChildren()) :
 
-				$result = self::recursiveNav($p->children(), $googleApiKey, $counter, $scoreSumDesktop, $scoreSumMobile);
+				$result = self::recursiveNav($p->children(), $googleApiKey, $desktop, $mobile, $counter, $errors);
 
 				if ($result && $result['pages']) {
 					$sub = $result['pages'];
 				}
 			endif;
 
-			$counter++;
+			$counter['count']++;
 
 			// Google PageSpeed Desktop
-			$apiUrlDesktop = 'https://www.googleapis.com/pagespeedonline/v2/runPagespeed?strategy=desktop&url=' . $p->url() . '&key=' . $googleApiKey;
-			$responseDesktop = HTTP::get($apiUrlDesktop);
+			if ($desktop) {
+				$apiUrlDesktop = 'https://www.googleapis.com/pagespeedonline/v2/runPagespeed?strategy=desktop&url=' . $p->url() . '&key=' . $googleApiKey;
+				$responseDesktop = HTTP::get($apiUrlDesktop);
 
-			$scoreDesktop = $responseDesktop->data['data']['ruleGroups']['SPEED']['score'];
+				if ($responseDesktop->code != StatusCodes::HTTP_OK) {
+					$errors[] = $responseDesktop->data;
+				}
 
-			$scoreSumDesktop += $scoreDesktop;
+				$scoreDesktop = $responseDesktop->data['data']['ruleGroups']['SPEED']['score'];
+
+				$counter['sumDesktop'] += $scoreDesktop;
+			} else {
+				$scoreDesktop = null;
+			}
 
 			// Google PageSpeed Mobile
-			$apiUrlMobile = 'https://www.googleapis.com/pagespeedonline/v2/runPagespeed?strategy=mobile&url=' . $p->url() . '&key=' . $googleApiKey;
-			$responseMobile = HTTP::get($apiUrlMobile);
+			if ($mobile) {
+				$apiUrlMobile = 'https://www.googleapis.com/pagespeedonline/v2/runPagespeed?strategy=mobile&url=' . $p->url() . '&key=' . $googleApiKey;
+				$responseMobile = HTTP::get($apiUrlMobile);
 
-			$scoreMobile = $responseMobile->data['data']['ruleGroups']['SPEED']['score'];
+				if ($responseMobile->code != StatusCodes::HTTP_OK) {
+					$errors[] = $responseMobile->data;
+				}
 
-			$scoreSumMobile += $scoreMobile;
+				$scoreMobile = $responseMobile->data['data']['ruleGroups']['SPEED']['score'];
+
+				$counter['sumMobile'] += $scoreMobile;
+			} else {
+				$scoreMobile = null;
+			}
 
 			// Response
 			$array['pages'][] = [
@@ -171,17 +188,55 @@ kirby()->routes(array(
 
 			$googleApiKey = c::get('ka.seo-checker.google.apikey', '');
 
-			$counter = 0;
-			$scoreSumDesktop = 0;
-			$scoreSumMobile = 0;
+			$counter['count'] = 0;
+			$counter['sumDesktop'] = 0;
+			$counter['sumMobile'] = 0;
 
-			$sitemap = SEOChecker::recursiveNav(null, $googleApiKey, $counter, $scoreSumDesktop, $scoreSumMobile);
+			$errors = [];
+
+			$desktop = filter_var(get('desktop', 0), FILTER_VALIDATE_BOOLEAN);
+			$mobile = filter_var(get('mobile', 0), FILTER_VALIDATE_BOOLEAN);
+
+			$sitemap = SEOChecker::recursiveNav(null, $googleApiKey, $desktop, $mobile, $counter, $errors);
 
 			return response::json([
 				'sitemap' => $sitemap['pages'],
-				'counter' => $counter,
-				'avgDesktop' => round($scoreSumDesktop / $counter),
-				'avgMobile' => round($scoreSumMobile / $counter)
+				'counter' => $counter['count'],
+				'avgDesktop' => ($counter['count'] > 0) ? round($counter['sumDesktop'] / $counter['count']) : 0,
+				'avgMobile' => ($counter['count'] > 0) ? round($counter['sumMobile'] / $counter['count']) : 0,
+				'errors' => $errors,
+				'desktop' => $desktop,
+				'mobile' => $mobile
+			]);
+		}
+	],
+	[
+		'method' => 'GET',
+		'pattern' => 'seo-checker/page-speed/single',
+		'action' => function () {
+
+			if (!site()->user()) {
+				return response::error($message = 'Bitte einloggen', $code = 401);
+			}
+
+			$googleApiKey = c::get('ka.seo-checker.google.apikey', '');
+
+			$url = get('url');
+			$strategy = get('strategy', 'desktop');
+
+			$apiUrlDesktop = 'https://www.googleapis.com/pagespeedonline/v2/runPagespeed?strategy=' . $strategy . '&url=' . $url . '&key=' . $googleApiKey;
+			$responseDesktop = HTTP::get($apiUrlDesktop);
+
+			if ($responseDesktop->code != StatusCodes::HTTP_OK) {
+				return response::error($message = 'ERROR', $code = $responseDesktop->code);
+			}
+
+			$score = $responseDesktop->data['data']['ruleGroups']['SPEED']['score'];
+
+			return response::json([
+				'score' => $score,
+				'strategy' => $strategy,
+				'url' => $url
 			]);
 		}
 	]

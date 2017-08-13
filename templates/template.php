@@ -23,12 +23,6 @@
             elementErrors.empty();
             elementWarnings.empty();
 
-            var elementError = $('#faviconCheckerError');
-            var elementWarning = $('#faviconCheckerWarning');
-
-            elementError.hide();
-            elementWarning.hide();
-
             $.ajax({
                 url : '/seo-checker/favicon-checker',
                 type : "GET",
@@ -47,18 +41,14 @@
 
                     if (data.infos.length > 0) {
                         data.infos.forEach(function (value) {
-                            elementWarnings.append('<li>' + value + '</li>');
+                            elementWarnings.append('<div class="alert alert-info">' + value + '</div>');
                         });
-
-                        elementWarning.show();
                     }
 
                     if (data.errors.length > 0) {
                         data.errors.forEach(function (value) {
-                            elementErrors.append('<li>' + value + '</li>');
+                            elementErrors.append('<div class="alert alert-danger">' + value + '</div>');
                         });
-
-                        elementError.show();
                     }
 
                 },
@@ -96,9 +86,9 @@
         }
 
         function addClass(element, score) {
-            if (score > 85)
+            if (score > 84)
                 element.addClass('label-success');
-            else if (score > 60)
+            else if (score > 64)
                 element.addClass('label-warning');
             else
                 element.addClass('label-danger');
@@ -111,25 +101,29 @@
 
                 li.append('<a href="' + value.url + '" target="_blank">' + value.title + '</a>');
 
-                li.append('&nbsp;');
+                if (value.pagespeed.scoreDesktop !== null) {
+                    li.append('&nbsp;');
 
-                var scoreLinkDesktop = $('<a href="https://developers.google.com/speed/pagespeed/insights/?tab=desktop&url=' + value.url + '" target="_blank"></a>');
-                li.append(scoreLinkDesktop);
+                    var scoreLinkDesktop = $('<a href="https://developers.google.com/speed/pagespeed/insights/?tab=desktop&url=' + value.url + '" target="_blank"></a>');
+                    li.append(scoreLinkDesktop);
 
-                var scoreDesktop = $('<span class="label">' + value.pagespeed.scoreDesktop + '</span>');
-                addClass(scoreDesktop, value.pagespeed.scoreDesktop);
+                    var scoreDesktop = $('<span class="label">' + value.pagespeed.scoreDesktop + '</span>');
+                    addClass(scoreDesktop, value.pagespeed.scoreDesktop);
 
-                scoreLinkDesktop.append(scoreDesktop);
+                    scoreLinkDesktop.append(scoreDesktop);
+                }
 
-                li.append('&nbsp;');
+                if (value.pagespeed.scoreMobile !== null) {
+                    li.append('&nbsp;');
 
-                var scoreLinkMobile = $('<a href="https://developers.google.com/speed/pagespeed/insights/?tab=mobile&url=' + value.url + '" target="_blank"></a>');
-                li.append(scoreLinkMobile);
+                    var scoreLinkMobile = $('<a href="https://developers.google.com/speed/pagespeed/insights/?tab=mobile&url=' + value.url + '" target="_blank"></a>');
+                    li.append(scoreLinkMobile);
 
-                var scoreDesktop = $('<span class="label"><span class="glyphicon glyphicon-phone"></span> ' + value.pagespeed.scoreMobile + '</span>');
-                addClass(scoreDesktop, value.pagespeed.scoreMobile);
+                    var scoreMobile = $('<span class="label"><span class="glyphicon glyphicon-phone"></span> ' + value.pagespeed.scoreMobile + '</span>');
+                    addClass(scoreMobile, value.pagespeed.scoreMobile);
 
-                scoreLinkMobile.append(scoreDesktop);
+                    scoreLinkMobile.append(scoreMobile);
+                }
 
                 if (value.pages) {
 
@@ -152,8 +146,11 @@
             element.empty();
             element.html('loading...');
 
+            var checkDesktop = $('#checkDesktop').is(":checked")
+            var checkMobile = $('#checkMobile').is(":checked")
+
             $.ajax({
-                url : '/seo-checker/page-speed',
+                url : '/seo-checker/page-speed?desktop=' + checkDesktop + '&mobile=' + checkMobile,
                 type : 'GET',
                 contentType : 'application/json',
                 success : function (data) {
@@ -236,19 +233,8 @@
 
             <br/>
 
-            <div class="panel panel-danger" style="display: none" id="faviconCheckerError">
-                <div class="panel-heading">Errors</div>
-                <div class="panel-body">
-                    <ul id="faviconCheckerErrors"></ul>
-                </div>
-            </div>
-
-            <div class="panel panel-warning" style="display: none" id="faviconCheckerWarning">
-                <div class="panel-heading">Warnings</div>
-                <div class="panel-body">
-                    <ul id="faviconCheckerWarnings"></ul>
-                </div>
-            </div>
+            <div id="faviconCheckerErrors"></div>
+            <div id="faviconCheckerWarnings"></div>
 
             <div><a href="<?= $faviconCheckerUrl; ?>" target="_blank">Favicon Checker</a></div>
         </div>
@@ -257,6 +243,14 @@
     <h2>Google PageSpeed <span class="label" id="scoreElement"></span>
         <button class="btn btn-default btn-xs" onclick="pageSpeed()">Reoad</button>
     </h2>
+
+    <label class="checkbox-inline">
+        <input type="checkbox" name="desktop" checked="checked" id="checkDesktop"> Desktop
+    </label>
+    <label class="checkbox-inline">
+        <input type="checkbox" name="mobile" id="checkMobile"> Mobile
+    </label>
+
 
     <ul id="pageSpeed"></ul>
 </div>
